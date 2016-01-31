@@ -33,7 +33,7 @@ struct Availables
 ```
 struct Data
 {
-    unsigned short length;
+    unsigned int length;
     unsigned short heights[length];
 };
 ```
