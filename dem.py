@@ -74,9 +74,9 @@ class DEM(object):
             f.write(struct.pack("b", b))
 
         # data
-        f.write(struct.pack("H", len(self.data.encoded_heights))) # unsigned short
+        f.write(struct.pack("I", len(self.data.encoded_heights))) # unsigned int
         for b in self.data.encoded_heights:
-            f.write(struct.pack("H", b))
+            f.write(struct.pack("H", b)) # unsigned short
         f.close()
 
     @staticmethod
@@ -126,7 +126,7 @@ class DEM(object):
         dem.availables.availables = a
 
         # data
-        (length,) = struct.unpack("H", f.read(2))
+        (length,) = struct.unpack("I", f.read(4))
         h = array.array('H') # encoded value
         for i in range(0, length):
             (v,) = struct.unpack('H', f.read(2))
