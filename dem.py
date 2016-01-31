@@ -24,6 +24,18 @@ class DEMAvailable(object):
     def addHasData(self):
         self.availables.append(1)
 
+    def toByteArray(self):
+        t = 0b0
+        ret = array.array('B')
+        for i in range(0, len(self.availables)):
+            bit = i % 8
+            if self.availables[i] == 1:
+                t = t + (1 << bit)
+            if bit == 7:
+                ret.append(t)
+                t = 0b0
+        return ret
+
 class DEMData(object):
     def __init__(self):
         self.heights = array.array('f')
@@ -70,8 +82,8 @@ class DEM(object):
         f.write(struct.pack("f", self.header.min_height))
 
         # available
-        for b in self.availables.availables:
-            f.write(struct.pack("b", b))
+        for b in self.availables.toByteArray():
+            f.write(struct.pack("B", b))
 
         # data
         f.write(struct.pack("I", len(self.data.encoded_heights))) # unsigned int
@@ -118,11 +130,15 @@ class DEM(object):
         dem = DEM(x, y, z)
         dem.header.setMaxMinHeight(maxHeight, minHeight)
 
-        # availables
+        # available
         a = array.array('b')
-        for i in range(0, 256*256):
-            (v,) = struct.unpack('b', f.read(1))
-            a.append(v)
+        for t in range(0, int(256*256 / 8)):
+            (v,) = struct.unpack('B', f.read(1))
+            for i in range(0, 8):
+                if v & (1 << i) != 0:
+                    a.append(1)
+                else:
+                    a.append(0)
         dem.availables.availables = a
 
         # data

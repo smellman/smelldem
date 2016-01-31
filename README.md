@@ -24,9 +24,11 @@ struct Header
 ```
 struct Availables
 {
-    unsigned char availables[256*256];
+    unsigned char availables[256*256 / 8];
 };
 ```
+
+One value contain 8bit flag.
 
 ## Data
 
