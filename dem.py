@@ -1,0 +1,170 @@
+# -*- coding: utf-8
+
+import struct
+import gzip
+import array
+
+class DEMHeader(object):
+    def __init__(self, x, y, z):
+        self.x = int(x)
+        self.y = int(y)
+        self.z = int(z)
+
+    def setMaxMinHeight(self, max_height, min_height):
+        self.max_height = max_height
+        self.min_height = min_height
+
+class DEMAvailable(object):
+    def __init__(self):
+        self.availables = array.array('b')
+
+    def addNoData(self):
+        self.availables.append(0)
+
+    def addHasData(self):
+        self.availables.append(1)
+
+class DEMData(object):
+    def __init__(self):
+        self.heights = array.array('f')
+
+    def addHeight(self, height):
+        self.heights.append(height)
+
+    def getMaxMinHeight(self):
+        return max(self.heights), min(self.heights)
+
+    def encode(self):
+        maxHeight, minHeight = self.getMaxMinHeight()
+        heights = array.array('H')
+        for h in self.heights:
+            height = int((h - minHeight) / (maxHeight - minHeight) * 32767)
+            heights.append(height)
+        self.encoded_heights = zigZagEncodeArray(heights)
+
+class DEM(object):
+    def __init__(self, x, y, z):
+        self.header = DEMHeader(x, y, z)
+        self.availables = DEMAvailable()
+        self.data = DEMData()
+
+    def write(self, f):
+        # header
+        print(self.header.x)
+        f.write(struct.pack("I", self.header.x)) # unsigned int
+        print(self.header.y)
+        f.write(struct.pack("I", self.header.y))
+        print(self.header.z)
+        f.write(struct.pack("b", self.header.z)) # unsigned char
+        f.write(struct.pack("f", self.header.max_height)) # float
+        f.write(struct.pack("f", self.header.min_height))
+
+        # available
+        for b in self.availables.availables:
+            f.write(struct.pack("b", b))
+
+        # data
+        f.write(struct.pack("H", len(self.data.encoded_heights))) # unsigned short
+        for b in self.data.encoded_heights:
+            f.write(struct.pack("H", b))
+        f.close()
+
+    @staticmethod
+    def generateFromGSIDem(x, y, z, input_file, output_file, gzipped=False):
+        dem = DEM(x, y, z)
+        fp = open(input_file, 'r')
+        lines = fp.readlines()
+        fp.close()
+        for l in lines:
+            l = l.strip()
+            for h in l.split(","):
+                if h == "e":
+                    dem.availables.addNoData()
+                else:
+                    height = float(h)
+                    dem.availables.addHasData()
+                    dem.data.addHeight(height)
+        dem.data.encode()
+        maxHeight, minHeight = dem.data.getMaxMinHeight()
+        dem.header.setMaxMinHeight(maxHeight, minHeight)
+
+        if gzipped:
+            f = gzip.open(output_file, 'wb')
+        else:
+            f = open(output_file, 'wb')
+        dem.write(f)
+
+    @staticmethod
+    def read(input_file, gzipped=False):
+        if gzipped:
+            f = gzip.open(input_file, 'rb')
+        else:
+            f = open(input_file, 'rb')
+        # header
+        x, y = struct.unpack('II', f.read(4 * 2))
+        (z,) = struct.unpack('b', f.read(1))
+        maxHeight, minHeight = struct.unpack('ff', f.read(4*2))
+
+        dem = DEM(x, y, z)
+        dem.header.setMaxMinHeight(maxHeight, minHeight)
+
+        # availables
+        a = array.array('b')
+        for i in range(0, 256*256):
+            (v,) = struct.unpack('b', f.read(1))
+            a.append(v)
+        dem.availables.availables = a
+
+        # data
+        (length,) = struct.unpack("H", f.read(2))
+        h = array.array('H') # encoded value
+        for i in range(0, length):
+            (v,) = struct.unpack('H', f.read(2))
+            h.append(v)
+        decoded = zigZagDecodeArray(h)
+        for v in decoded:
+            height = ((v / 32767.0) * (maxHeight - minHeight)) + minHeight
+            dem.data.addHeight(height)
+        f.close()
+        return dem
+
+    def outputGSIDEM(self, output_file):
+        fp = open(output_file, 'w')
+        data_pos = 0
+        for y in range(0, 256):
+            line = []
+            for x in range(0, 256):
+                pos = (y * 256) + x
+                if self.availables.availables[pos] == 0:
+                    line.append("e")
+                else:
+                    line.append(str(round(self.data.heights[data_pos], 2)))
+                    data_pos = data_pos + 1
+            fp.write(",".join(line))
+            fp.write("\n")
+        fp.close()
+
+    @staticmethod
+    def readDEMandWriteGSIDEM(input_file, output_file):
+        dem = DEM.read(input_file)
+        dem.outputGSIDEM(output_file)
+
+def zigZagEncodeArray(values):
+    ret = array.array('H')
+    pre = 0
+    for buf in values:
+        value = ((buf << 1) ^ (buf >> 15))
+        if pre <= value:
+            ret.append(value - pre)
+        else:
+            ret.append(pre - value - 1)
+        pre = value
+    return ret
+
+def zigZagDecodeArray(values):
+    ret = array.array('H')
+    t = 0
+    for v in values:
+        t += (v >> 1) ^ (-(v & 1))
+        ret.append(t)
+    return ret
