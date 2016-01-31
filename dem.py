@@ -42,6 +42,16 @@ class DEMData(object):
             heights.append(height)
         self.encoded_heights = zigZagEncodeArray(heights)
 
+    def setEncodedHeights(self, h):
+        self.encoded_heights = h
+
+    def decode(self, maxHeight, minHeight):
+        self.heights = array.array('f')
+        decoded = zigZagDecodeArray(self.encoded_heights)
+        for v in decoded:
+            height = ((v / 32767.0) * (maxHeight - minHeight)) + minHeight
+            self.addHeight(height)
+
 class DEM(object):
     def __init__(self, x, y, z):
         self.header = DEMHeader(x, y, z)
@@ -121,10 +131,8 @@ class DEM(object):
         for i in range(0, length):
             (v,) = struct.unpack('H', f.read(2))
             h.append(v)
-        decoded = zigZagDecodeArray(h)
-        for v in decoded:
-            height = ((v / 32767.0) * (maxHeight - minHeight)) + minHeight
-            dem.data.addHeight(height)
+        dem.data.setEncodedHeights(h)
+        dem.data.decode(maxHeight, minHeight)
         f.close()
         return dem
 
