@@ -44,10 +44,15 @@ class DEMData(object):
         self.heights.append(height)
 
     def getMaxMinHeight(self):
+        if len(self.heights) == 0:
+            return 0, 0
         return max(self.heights), min(self.heights)
 
     def encode(self):
         maxHeight, minHeight = self.getMaxMinHeight()
+        if maxHeight == 0 and minHeight == 0:
+            self.encoded_heights = array.array('H')
+            return
         heights = array.array('H')
         for h in self.heights:
             height = int((h - minHeight) / (maxHeight - minHeight) * 32767)
