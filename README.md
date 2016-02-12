@@ -59,3 +59,11 @@ read tile data from SmellDEM and write GSI DEM file.
 ```bash
 python gsidem_writer.py 5.28.12.dem 5.28.12.test.txt
 ```
+
+## gsidem_importer.py
+
+generate tile set from GSI DEM tile set.
+
+```bash
+python gsidem_importer.py ../qdltc/dem output2 0 12
+```
