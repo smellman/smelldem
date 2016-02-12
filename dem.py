@@ -72,11 +72,8 @@ class DEM(object):
 
     def write(self, f):
         # header
-        print(self.header.x)
         f.write(struct.pack("I", self.header.x)) # unsigned int
-        print(self.header.y)
         f.write(struct.pack("I", self.header.y))
-        print(self.header.z)
         f.write(struct.pack("b", self.header.z)) # unsigned char
         f.write(struct.pack("f", self.header.max_height)) # float
         f.write(struct.pack("f", self.header.min_height))
